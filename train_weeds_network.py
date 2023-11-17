@@ -1,5 +1,3 @@
-
-
 # Copyright 2018 The JAX Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,6 +32,8 @@ from jax.example_libraries import stax
 from jax.example_libraries.stax import Dense, Relu, LogSoftmax
 import datasets
 
+import tqdm
+
 
 def loss(params, batch, predict):
     inputs, targets = batch
@@ -60,7 +60,7 @@ def train_network(layer_size=16):
     batch_size = 128
     momentum_mass = 0.9
 
-    train_images, train_labels, test_images, test_labels = datasets.mnist()
+    train_images, train_labels, test_images, test_labels = datasets.weeds()
     num_train = train_images.shape[0]
     num_complete_batches, leftover = divmod(num_train, batch_size)
     num_batches = num_complete_batches + bool(leftover)
@@ -82,11 +82,11 @@ def train_network(layer_size=16):
         params = get_params(opt_state)
         return opt_update(i, grad(loss)(params, batch, predict), opt_state)
 
-    _, init_params = init_random_params(rng, (-1, 28 * 28))
+    _, init_params = init_random_params(rng, (-1, 28 * 28 * 3))
     opt_state = opt_init(init_params)
     itercount = itertools.count()
 
-    for epoch in range(num_epochs):
+    for epoch in tqdm.trange(num_epochs):
         for _ in range(num_batches):
             opt_state = update(next(itercount), opt_state, next(batches))
         params = get_params(opt_state)
@@ -102,11 +102,11 @@ def main():
         Dense(10), LogSoftmax)
     
     step_size = 0.001
-    num_epochs = 10
+    num_epochs = 500
     batch_size = 128
     momentum_mass = 0.9
-    
-    train_images, train_labels, test_images, test_labels = datasets.mnist()
+
+    train_images, train_labels, test_images, test_labels = datasets.weeds()
     num_train = train_images.shape[0]
     num_complete_batches, leftover = divmod(num_train, batch_size)
     num_batches = num_complete_batches + bool(leftover)
@@ -126,9 +126,9 @@ def main():
     @jit
     def update(i, opt_state, batch):
         params = get_params(opt_state)
-        return opt_update(i, grad(loss)(params, batch), opt_state)
+        return opt_update(i, grad(loss)(params, batch, predict), opt_state)
 
-    _, init_params = init_random_params(rng, (-1, 28 * 28))
+    _, init_params = init_random_params(rng, (-1, 28 * 28 * 3))
     opt_state = opt_init(init_params)
     itercount = itertools.count()
 
@@ -140,8 +140,8 @@ def main():
         epoch_time = time.time() - start_time
 
         params = get_params(opt_state)
-        train_acc = accuracy(params, (train_images, train_labels))
-        test_acc = accuracy(params, (test_images, test_labels))
+        train_acc = accuracy(params, (train_images, train_labels), predict)
+        test_acc = accuracy(params, (test_images, test_labels), predict)
         print(f"Epoch {epoch} in {epoch_time:0.2f} sec")
         print(f"Training set accuracy {train_acc}")
         print(f"Test set accuracy {test_acc}")

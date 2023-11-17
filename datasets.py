@@ -20,8 +20,11 @@ import os
 from os import path
 import struct
 import urllib.request
-
+import glob
+from PIL import Image
 import numpy as np
+import pandas
+import tqdm
 
 
 _DATA = "/tmp/jax_example_data/"
@@ -90,3 +93,47 @@ def mnist(permute_train=False):
         train_labels = train_labels[perm]
 
     return train_images, train_labels, test_images, test_labels
+
+def weeds_pre_proc(dataset_folder, output_folder):
+    """The pre-processing function ran on the original dataset.
+    Students will not need to run this function, done pre distribution."""
+    image_files = glob.glob(os.path.join(dataset_folder, "raw_images", "*.jpg"))
+    rng = np.random.RandomState(42)
+    subset_features = rng.randint(256*256, size=28*28)
+    labels_df = pandas.read_csv(os.path.join(output_folder, "labels.csv"))
+    labels_df.set_index("Filename", inplace=True)
+    feat_list = []
+    label_list = []
+    pbar = tqdm.tqdm(image_files)
+    for fp in pbar:
+        img_arr = np.array(Image.open(fp))
+        # Only do subselection and flatten here,
+        # do pre-proc norm during training.
+        subset_img = img_arr.reshape(256*256, 3)[subset_features, :].flatten()
+        feat_list.append(subset_img)
+        label_row = labels_df.loc[os.path.basename(fp)]
+        label_list.append(label_row["Label"])
+
+    full_data = np.stack(feat_list)
+    labels = np.array(label_list)
+    np.save(os.path.join(output_folder, "weeds_features.npy"), full_data)
+    np.save(os.path.join(output_folder, "weeds_labels.npy"), labels)
+    return
+
+def weeds_load(folder, train_perc=0.8, split_random_seed=None):
+    feats = np.load(os.path.join(folder, "weeds_features.npy"))
+    labels = _one_hot(np.load(os.path.join(folder, "weeds_labels.npy")), 10)
+    a = np.random.RandomState()
+    if split_random_seed:
+        a.seed(split_random_seed)
+    idxs = np.arange(feats.shape[0])
+    a.shuffle(idxs)
+    train_feats = feats[idxs[0:int(train_perc*len(idxs))], :] / 256.
+    train_labels = labels[idxs[0:int(train_perc*len(idxs))], :]
+    validation_feats = feats[idxs[int(train_perc*len(idxs))+1:], :] / 256.
+    validation_labels = labels[idxs[int(train_perc*len(idxs))+1:], :]
+    return train_feats, train_labels, validation_feats, validation_labels
+
+
+def weeds():
+    return weeds_load("./dataset/", split_random_seed=42)
