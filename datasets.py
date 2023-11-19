@@ -94,6 +94,20 @@ def mnist(permute_train=False):
 
     return train_images, train_labels, test_images, test_labels
 
+
+def addition():
+    rng = np.random.RandomState(42)
+
+    train_data = rng.rand(10000, 2) * 10
+    train_labels = train_data[:, 0] + train_data[:, 1]
+    train_labels = train_labels.reshape((10000, 1))
+
+    neg_data = rng.rand(100, 2) * -10
+    neg_labels = neg_data[:, 0] + neg_data[:, 1]
+    neg_labels = neg_labels.reshape((100, 1))
+    return train_data/10, train_labels/20, neg_data/10, neg_labels/20
+
+
 def weeds_pre_proc(dataset_folder, output_folder):
     """The pre-processing function ran on the original dataset.
     Students will not need to run this function, done pre distribution."""
@@ -120,20 +134,25 @@ def weeds_pre_proc(dataset_folder, output_folder):
     np.save(os.path.join(output_folder, "weeds_labels.npy"), labels)
     return
 
-def weeds_load(folder, train_perc=0.8, split_random_seed=None):
+
+def weeds_load(folder, train_perc=0.8, split_random_seed=None, clean_labels=False):
     feats = np.load(os.path.join(folder, "weeds_features.npy"))
-    labels = _one_hot(np.load(os.path.join(folder, "weeds_labels.npy")), 10)
+    labels = _one_hot(np.load(os.path.join(folder, "weeds_labels.npy")) == 8,
+                      1)
+    # labels = _one_hot(np.load(os.path.join(folder, "weeds_labels.npy")), 9)
     a = np.random.RandomState()
     if split_random_seed:
         a.seed(split_random_seed)
     idxs = np.arange(feats.shape[0])
     a.shuffle(idxs)
     train_feats = feats[idxs[0:int(train_perc*len(idxs))], :] / 256.
-    train_labels = labels[idxs[0:int(train_perc*len(idxs))], :]
+    train_labels = labels[idxs[0:int(train_perc*len(idxs))]]
     validation_feats = feats[idxs[int(train_perc*len(idxs))+1:], :] / 256.
-    validation_labels = labels[idxs[int(train_perc*len(idxs))+1:], :]
+    validation_labels = labels[idxs[int(train_perc*len(idxs))+1:]]
     return train_feats, train_labels, validation_feats, validation_labels
 
 
-def weeds():
-    return weeds_load("./dataset/", split_random_seed=42)
+def weeds(clean_labels=False):
+    return weeds_load("./dataset/",
+                      split_random_seed=42,
+                      clean_labels=clean_labels)
